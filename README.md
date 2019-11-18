@@ -1,2 +1,2 @@
 # AX-5
-VAE
+This is a sample of GAN by Tensorflow2.0
