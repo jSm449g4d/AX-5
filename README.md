@@ -1,2 +1,2 @@
 # AX-5
-This is a sample of GAN by Tensorflow2.0
+This is a sample of VAE by Tensorflow2.0
