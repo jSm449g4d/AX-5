@@ -1,2 +1,18 @@
 # AX-5
 This is a sample of VAE by Tensorflow2.0
+
+## How to use
+0.install required modules
+
+tensorflow2.0
+
+tqdm
+
+opencv-python
+
+pip install git+https://github.com/jSm449g4d/AR9
+
+
+1.`lfw.sh`or`apple2orange.sh`
+
+2.`python3 main.py -t (train_data_directory)` 
