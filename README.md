@@ -5,7 +5,7 @@ This is a sample of VAE by Tensorflow2.0
 ## How to use
 0.**install required modules**
 
-tensorflow2.0
+tensorflow2.x
 
 tqdm
 
