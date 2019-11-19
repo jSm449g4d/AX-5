@@ -53,17 +53,18 @@ class c3c(keras.Model):
                 ]
         return
     def call(self,mod):#plz add layers below...
-        mod_1=mod
-        for i in range(len(self.layer1_1)):mod_1=self.layer1_1[i](mod_1)
-        for i in range(len(self.layer1)):mod=self.layer1[i](mod)
-        mod=keras.layers.add([mod,mod_1])
+        with tf.name_scope("c3c"):
+            mod_1=mod
+            for i in range(len(self.layer1_1)):mod_1=self.layer1_1[i](mod_1)
+            for i in range(len(self.layer1)):mod=self.layer1[i](mod)
+            mod=keras.layers.add([mod,mod_1])
         return mod
 
 #keras.applications.MobileNetV2()
 class AE(tf.keras.Model):
     def __init__(self,trials={},opt=keras.optimizers.Adam(1e-3)):
         super().__init__()
-        self.seedshape=np.array([1,1,4]).astype(np.int)
+        self.seedshape=np.array([1,1,12]).astype(np.int)
         self.layer1=[Conv2D(4,3,2,padding="same",activation="relu"),
                      c3c(4),
                      c3c(6),
@@ -79,13 +80,13 @@ class AE(tf.keras.Model):
                        c3c(12),
                        Flatten(),
                        Dropout(0.05),
-                       Dense(self.seedshape.prod(),activation="sigmoid"),
+                       Dense(self.seedshape.prod(),activation="relu"),
                        ]
         self.layer2_2=[c3c(16),
                        c3c(12),
                        Flatten(),
                        Dropout(0.05),
-                       Dense(self.seedshape.prod(),activation="sigmoid"),
+                       Dense(self.seedshape.prod(),activation="relu"),
                        ]
         self.layer3=[Reshape(self.seedshape),   
                      UpSampling2D(2),
@@ -98,10 +99,12 @@ class AE(tf.keras.Model):
                      c3c(32),
                      UpSampling2D(2),
                      c3c(36),
+                     c3c(48),
                      c3c(36),
                      UpSampling2D(2),
-                     c3c(36),
                      c3c(24),
+                     c3c(24),
+                     c3c(12),
                      Conv2D(3,1,padding="same",activation="sigmoid"),
                      ]
     
@@ -139,7 +142,7 @@ parser.add_argument('-t', '--train' ,help="train_data",default="./lfw")
 parser.add_argument('-o', '--outdir' ,help="outdir",default="./output")
 parser.add_argument('-b', '--batch' ,help="batch",default=16,type=int)
 parser.add_argument('-p', '--predbatch' ,help="batch_size_of_prediction",default=4,type=int)
-parser.add_argument('-e', '--epoch' ,help="epochs",default=10,type=int)
+parser.add_argument('-e', '--epoch' ,help="epochs",default=30,type=int)
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -154,9 +157,10 @@ if __name__ == '__main__':
     
     try:model.load_weights(os.path.join(args.outdir,"mod.hdf5"))
     except:print("\nCannot_use_savedata...")
+    mkdiring("logs")#error : os.path.join(args.outdir,"logs/")
     model.fit(img,img,batch_size=args.batch,epochs=args.epoch,
               callbacks=[K_B(),
-                         #keras.callbacks.TensorBoard(log_dir=os.path.join(args.outdir,"logs"))
+                         keras.callbacks.TensorBoard(log_dir="logs") ,
                          ])
     tf2img(img[:args.batch],os.path.join(args.outdir,"0_0"))
     tf2img(model(img[:args.batch]),os.path.join(args.outdir,"0_1"))
