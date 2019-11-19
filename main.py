@@ -4,6 +4,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras.layers import Dense,Dropout,Conv2D,Conv2DTranspose,\
 ReLU,Softmax,Flatten,Reshape,UpSampling2D,Input,Activation,LayerNormalization
+from tensorflow.keras.callbacks import ModelCheckpoint
 from tqdm import tqdm
 import random
 import argparse
@@ -62,28 +63,26 @@ class c3c(keras.Model):
 class AE(tf.keras.Model):
     def __init__(self,trials={},opt=keras.optimizers.Adam(1e-3)):
         super().__init__()
-        self.seedshape=np.array([1,1,8]).astype(np.int)
+        self.seedshape=np.array([1,1,4]).astype(np.int)
         self.layer1=[Conv2D(4,3,2,padding="same",activation="relu"),
                      c3c(4),
                      c3c(6),
                      Conv2D(6,3,2,padding="same",activation="relu"),
                      c3c(6),
-                     Conv2D(8,3,2,padding="same",activation="relu"),
-                     c3c(8),
                      Conv2D(12,3,2,padding="same",activation="relu"),
-                     Conv2D(16,3,2,padding="same",activation="relu"),
+                     c3c(16),
+                     Conv2D(24,3,2,padding="same",activation="relu"),
+                     Conv2D(32,3,2,padding="same",activation="relu"),
                      Dropout(0.05),
                      ]
         self.layer2_1=[c3c(16),
                        c3c(12),
-                       c3c(8),
                        Flatten(),
                        Dropout(0.05),
                        Dense(self.seedshape.prod(),activation="sigmoid"),
                        ]
         self.layer2_2=[c3c(16),
                        c3c(12),
-                       c3c(8),
                        Flatten(),
                        Dropout(0.05),
                        Dense(self.seedshape.prod(),activation="sigmoid"),
@@ -109,6 +108,7 @@ class AE(tf.keras.Model):
     def reparameterize(self, mod, log_var):
         normal = tf.random.normal(tf.shape(log_var))
         return keras.layers.add([mod , normal * tf.exp(log_var * 0.5)])
+        #return keras.layers.add([mod ,log_var])
     
     def call(self,mod):
         print(mod.shape)
@@ -131,13 +131,15 @@ class AE(tf.keras.Model):
 class K_B(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs={}):
         tf2img(self.model.pred(4),epoch=epoch,dir=os.path.join(args.outdir,"1"))
+        self.model.save_weights(os.path.join(args.outdir,"mod.hdf5"))
+        
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-t', '--train' ,help="train_data",default="./lfw")
 parser.add_argument('-o', '--outdir' ,help="outdir",default="./output")
 parser.add_argument('-b', '--batch' ,help="batch",default=16,type=int)
 parser.add_argument('-p', '--predbatch' ,help="batch_size_of_prediction",default=4,type=int)
-parser.add_argument('-e', '--epoch' ,help="epochs",default=5,type=int)
+parser.add_argument('-e', '--epoch' ,help="epochs",default=10,type=int)
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -146,9 +148,12 @@ if __name__ == '__main__':
     model = AE()
     model.build(input_shape=(args.batch,img.shape[1],img.shape[2],img.shape[3]))
     model.summary()
-    model.compile(optimizer =keras.optimizers.Adam(1e-3),
+    model.compile(optimizer =keras.optimizers.Adam(1e-4),
                           loss=keras.losses.binary_crossentropy,
                           metrics=['accuracy'])
+    
+    try:model.load_weights(os.path.join(args.outdir,"mod.hdf5"))
+    except:print("\nCannot_use_savedata...")
     model.fit(img,img,batch_size=args.batch,epochs=args.epoch,
               callbacks=[K_B(),
                          #keras.callbacks.TensorBoard(log_dir=os.path.join(args.outdir,"logs"))
