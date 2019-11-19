@@ -12,6 +12,6 @@ tqdm
 opencv-python
 
 
-1.`lfw.sh`or`apple2orange.sh`
+1.`lfw.sh`or`apple2orange.sh` or your_dataset
 
 2.`python3 main.py -t (train_data_directory)` 
