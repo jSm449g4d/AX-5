@@ -7,6 +7,7 @@ ReLU,Softmax,Flatten,Reshape,UpSampling2D,Input,Activation,LayerNormalization
 from tqdm import tqdm
 import random
 import argparse
+import os
 
 from ARutil import ffzk,mkdiring,rootYrel
 
@@ -22,11 +23,12 @@ def img2np(dir=[],img_len=0):
         img[-1] = img[-1].astype(np.float32)/ 256
     return np.stack(img, axis=0)
 
-def tf2img(tfs,dir="./",epoch=0,ext=".png"):
+def tf2img(tfs,dir="./",name="",epoch=0,ext=".png"):
     mkdiring(dir)
-    tfs=(tfs.numpy()*256).astype(np.uint8)
+    if type(tfs)!=np.ndarray:tfs=tfs.numpy()
+    tfs=(tfs*256).astype(np.uint8)
     for i in range(tfs.shape[0]):
-        cv2.imwrite(rootYrel(dir,"epoch-num"+str(epoch)+"-"+str(i)+ext),tfs[i])
+        cv2.imwrite(rootYrel(dir,name+"_epoch-num_"+str(epoch)+"-"+str(i)+ext),tfs[i])
         
 def tf_ini():#About GPU resources
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -34,18 +36,19 @@ def tf_ini():#About GPU resources
         tf.config.experimental.set_memory_growth(physical_devices[k], True)
     if len(physical_devices)==0:print("GPU failed!")
     return len(physical_devices)
+tf_ini()
     
 
 class c3c(keras.Model):
     def __init__(self,dim=4):#plz define used layers below...
         super().__init__()
-        self.layer1_1=[Activation("elu"),
+        self.layer1_1=[Conv2D(dim,3,padding="same"),
                        Conv2D(dim,3,padding="same"),
-                       Conv2D(dim,3,padding="same"),
-                       Conv2D(dim,3,padding="same"),
+                       Conv2D(dim,3,padding="same",activation="relu"),
                        Dropout(0.05),
                 ]
-        self.layer1=[Conv2D(dim,1,padding="same"),
+        self.layer1=[Conv2D(dim,1,padding="same",activation="relu"),
+                     Dropout(0.05),
                 ]
         return
     def call(self,mod):#plz add layers below...
@@ -92,28 +95,23 @@ class AE(tf.keras.Model):
                      c3c(16),
                      UpSampling2D(2),
                      c3c(24),
-                     c3c(32),
                      UpSampling2D(2),
                      c3c(32),
-                     c3c(48),
                      UpSampling2D(2),
-                     c3c(48),
-                     c3c(54),
-                     c3c(64),
+                     c3c(36),
+                     c3c(36),
                      UpSampling2D(2),
-                     c3c(64),
-                     c3c(84),
-                     c3c(72),
-                     c3c(94),
+                     c3c(36),
+                     c3c(24),
                      Conv2D(3,1,padding="same",activation="sigmoid"),
                      ]
     
-    def reparameterize(self, mu, log_var):
-        std = tf.exp(log_var * 0.5)
-        eps = tf.random.normal(std.shape[1:])
-        return mu + eps * std
+    def reparameterize(self, mod, log_var):
+        normal = tf.random.normal(tf.shape(log_var))
+        return keras.layers.add([mod , normal * tf.exp(log_var * 0.5)])
     
     def call(self,mod):
+        print(mod.shape)
         for i in range(len(self.layer1)):mod=self.layer1[i](mod)
         mod2=mod;
         for i in range(len(self.layer2_1)):mod=self.layer2_1[i](mod)
@@ -132,26 +130,30 @@ class AE(tf.keras.Model):
 
 class K_B(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs={}):
-        tf2img(self.model.pred(4),epoch=epoch,dir="./output2")
+        tf2img(self.model.pred(4),epoch=epoch,dir=os.path.join(args.outdir,"1"))
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-t', '--train' ,help="train_data",default="./apple2orange/testA/")
-parser.add_argument('-b', '--batch' ,help="batch",default=8,type=int)
+parser.add_argument('-t', '--train' ,help="train_data",default="./lfw")
+parser.add_argument('-o', '--outdir' ,help="outdir",default="./output")
+parser.add_argument('-b', '--batch' ,help="batch",default=16,type=int)
 parser.add_argument('-p', '--predbatch' ,help="batch_size_of_prediction",default=4,type=int)
-parser.add_argument('-e', '--epoch' ,help="epochs",default=200,type=int)
+parser.add_argument('-e', '--epoch' ,help="epochs",default=5,type=int)
 args = parser.parse_args()
 
 if __name__ == '__main__':
-    tf_ini()
+    mkdiring(args.outdir)
     img=img2np(ffzk(args.train),64)
     model = AE()
-    model.build(input_shape=img.shape)
+    model.build(input_shape=(args.batch,img.shape[1],img.shape[2],img.shape[3]))
     model.summary()
     model.compile(optimizer =keras.optimizers.Adam(1e-3),
                           loss=keras.losses.binary_crossentropy,
                           metrics=['accuracy'])
-    model.fit(img,img,batch_size=args.batch,epochs=args.epoch,callbacks=[K_B()])
-    
-    tf2img(model(img),"./output")
+    model.fit(img,img,batch_size=args.batch,epochs=args.epoch,
+              callbacks=[K_B(),
+                         #keras.callbacks.TensorBoard(log_dir=os.path.join(args.outdir,"logs"))
+                         ])
+    tf2img(img[:args.batch],os.path.join(args.outdir,"0_0"))
+    tf2img(model(img[:args.batch]),os.path.join(args.outdir,"0_1"))
     
     
