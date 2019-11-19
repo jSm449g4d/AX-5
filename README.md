@@ -11,8 +11,6 @@ tqdm
 
 opencv-python
 
-pip install git+https://github.com/jSm449g4d/AR9
-
 
 1.`lfw.sh`or`apple2orange.sh`
 
