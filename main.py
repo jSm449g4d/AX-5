@@ -10,7 +10,19 @@ import random
 import argparse
 import os
 
-from ARutil import ffzk,mkdiring,rootYrel
+#from AR9
+def mkdiring(input):
+    arr=input.split("/");input=""
+    for inp in arr:
+        if not os.path.exists(input+inp+"/"):os.mkdir(input+inp)
+        input+=inp+"/"
+    return input.rstrip("/")
+def ffzk(input_dir):#Relative directory for all existing files
+    imgname_array=[];input_dir=input_dir.strip("\"\'")
+    for fd_path, _, sb_file in os.walk(input_dir):
+        for fil in sb_file:imgname_array.append(fd_path.replace('\\','/') + '/' + fil)
+    if os.path.isfile(input_dir):imgname_array.append(input_dir.replace('\\','/'))
+    return imgname_array
 
 
 
