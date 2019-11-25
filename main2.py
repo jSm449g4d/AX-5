@@ -163,7 +163,5 @@ if __name__ == '__main__':
               callbacks=[K_B(enc,dec),
                          keras.callbacks.TensorBoard(log_dir="logs") ,
                          ])
-    tf2img(img[:args.batch],os.path.join(args.outdir,"0_0"))
-    tf2img(enc(img[:args.batch]),os.path.join(args.outdir,"0_1"))
     
     
